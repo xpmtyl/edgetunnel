@@ -1,6 +1,6 @@
 name: Deploy edgetunnel to Cloudflare Pages
 
-# 背景：Pages 项目 edit08122026 的 Git 集成已失效（source.type=None），
+# 背景：Pages 项目 edg2 的 Git 集成已失效（source.type=None），
 # push 不会触发构建；且 sync.yml 用的是默认 GITHUB_TOKEN，其 push
 # 不会触发其它 workflow。因此这里用「定时兜底 + 手动」双保险：
 #   - schedule 每天 01:00 UTC（比 sync.yml 的 00:00 晚 1 小时）
@@ -42,6 +42,6 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: >-
             pages deploy .pages-upload
-            --project-name=edit08122026
+            --project-name=edg2
             --branch=main
             --commit-dirty=true
