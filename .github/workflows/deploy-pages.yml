@@ -1,0 +1,47 @@
+name: Deploy edgetunnel to Cloudflare Pages
+
+# 背景：Pages 项目 edit08122026 的 Git 集成已失效（source.type=None），
+# push 不会触发构建；且 sync.yml 用的是默认 GITHUB_TOKEN，其 push
+# 不会触发其它 workflow。因此这里用「定时兜底 + 手动」双保险：
+#   - schedule 每天 01:00 UTC（比 sync.yml 的 00:00 晚 1 小时）
+#   - workflow_dispatch 手动
+#   - push 仅在用 PAT 推送时才有效，作为加速路径
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "_worker.js"
+      - ".github/workflows/deploy-pages.yml"
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: 直传部署到 Cloudflare Pages
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 准备上传目录
+        run: |
+          mkdir -p .pages-upload
+          cp _worker.js .pages-upload/_worker.js
+          ls -la .pages-upload/
+
+      - name: 部署到 Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy .pages-upload
+            --project-name=edit08122026
+            --branch=main
+            --commit-dirty=true
