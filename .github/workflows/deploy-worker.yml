@@ -1,13 +1,15 @@
 name: Deploy edgetunnel to Cloudflare Workers
 
-# 背景：该 Cloudflare 账号的 Pages 产品被滥用风控封禁（code 8000119），
-# 任何 Pages 部署都会被拒。因此改用 Workers 直传部署 —— 同一账号下
-# Workers 部署正常，且可通过 Workers 自定义域名自动创建 DNS 记录。
+# 为什么不用 wrangler：
+#   本仓库的 _worker.js 是 ES module（export default）。用 wrangler 上传会得到
+#   Error 1101 "Worker threw exception" —— 脚本被当成「经典脚本」解析，export
+#   直接语法错误。ES module 必须以 Content-Type: application/javascript+module
+#   上传，因此这里直连 Cloudflare REST API（见 scripts/deploy.py），不依赖 npm。
 #
 # 触发：
 #   - schedule 每天 01:00 UTC 兜底（sync.yml 00:00 拉上游后 1 小时）
 #   - workflow_dispatch 手动
-#   - push 到 _worker.js / 本工作流（用 PAT 推送时生效）
+#   - push 到 _worker.js / scripts/deploy.py / 本工作流
 
 on:
   schedule:
@@ -17,7 +19,7 @@ on:
     branches: [main]
     paths:
       - "_worker.js"
-      - "wrangler.toml"
+      - "scripts/deploy.py"
       - ".github/workflows/deploy-worker.yml"
 
 permissions:
@@ -31,12 +33,17 @@ jobs:
       - name: 检出仓库
         uses: actions/checkout@v4
 
-      - name: 部署到 Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: >-
-            deploy _diag.js
-            --name edgetest
-            --compatibility-date 2025-11-04
+          python-version: "3.12"
+
+      - name: 部署到 Cloudflare Workers
+        run: python scripts/deploy.py
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WORKER_NAME: edgetunnel
+          COMPAT_DATE: "2025-11-04"
+          ADMIN: ${{ secrets.EDGETUNNEL_ADMIN }}
+          PROXYIP: "ip.111000.de5.net"
