@@ -1,0 +1,42 @@
+name: Deploy edgetunnel to Cloudflare Workers
+
+# 背景：该 Cloudflare 账号的 Pages 产品被滥用风控封禁（code 8000119），
+# 任何 Pages 部署都会被拒。因此改用 Workers 直传部署 —— 同一账号下
+# Workers 部署正常，且可通过 Workers 自定义域名自动创建 DNS 记录。
+#
+# 触发：
+#   - schedule 每天 01:00 UTC 兜底（sync.yml 00:00 拉上游后 1 小时）
+#   - workflow_dispatch 手动
+#   - push 到 _worker.js / 本工作流（用 PAT 推送时生效）
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "_worker.js"
+      - "wrangler.toml"
+      - ".github/workflows/deploy-worker.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: 部署到 Cloudflare Workers
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 部署到 Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            deploy
+            --name edgetunnel
+            --compatibility-date 2025-11-04
