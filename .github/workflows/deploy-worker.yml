@@ -38,5 +38,5 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: >-
             deploy _diag.js
-            --name edgetunnel
+            --name edgetest
             --compatibility-date 2025-11-04
